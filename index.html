@@ -25,12 +25,17 @@ canvas{display:block;width:100%;height:100%;}
 #pauseBtn.hidden{display:none;}
 #overlay{position:absolute;inset:0;background:rgba(26,19,32,.9);
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  display:flex;align-items:flex-start;justify-content:center;padding:16px;
   visibility:hidden;opacity:0;pointer-events:none;
-  transition:opacity .3s ease,visibility 0s .3s;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  transition:opacity .3s ease,visibility 0s .3s;
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  touch-action:pan-y;
+  padding:20px 20px max(20px, env(safe-area-inset-bottom)) 20px;
+}
 #overlay.show{visibility:visible;opacity:1;pointer-events:auto;
   transition:opacity .3s ease,visibility 0s 0s;}
-#overlay-content{width:100%;max-width:380px;text-align:center;margin:auto;
+#overlay-content{width:100%;max-width:380px;margin:20px auto;text-align:center;
   animation:fadeUp .4s cubic-bezier(.2,.9,.3,1);}
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
 .ov-emoji{font-size:60px;line-height:1;margin-bottom:12px;
@@ -226,7 +231,16 @@ window.addEventListener('keyup',function(e){
   if(k==='arrowup'||k==='w'||k==='ц')input.up=false;
   if(k==='arrowdown'||k==='s'||k==='ы')input.down=false;
 });
-document.addEventListener('touchmove',function(e){e.preventDefault();},{passive:false});
+
+/* === КЛЮЧЕВОЙ ФИКС: разрешаем скролл внутри overlay === */
+document.addEventListener('touchmove',function(e){
+  var t = e.target;
+  // Разрешаем скролл, если касание началось внутри overlay
+  if(t && t.closest && t.closest('#overlay')){
+    return; // браузер сам обработает pan-y
+  }
+  e.preventDefault();
+},{passive:false});
 
 /* ================= CHARACTERS ================= */
 var Z={x:0,y:0,dir:1,walking:false,scale:0.85,skin:'#f8d5b8',hair:'#b89b78'};
@@ -1092,22 +1106,19 @@ IMPL.fridge={
     chip('🍕 '+s.grabbed+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 12. PHONE (REDESIGNED: tap-to-hide) ---- */
+/* ---- 12. PHONE ---- */
 IMPL.phone={
   joystick:false,
   init:function(L){var s=L.state;
-    s.hidden=false;s.hiddenT=0;
-    s.time=0;s.dur=12;
+    s.hidden=false;s.hiddenT=0;s.time=0;s.dur=12;
     s.lookT=2;s.looking=true;
     s.phoneX=W/2;s.phoneY=380;
     Z.x=140;Z.y=560;Z.dir=1;Z.walking=false;
-    P.x=340;P.y=560;P.dir=-1;P.walking=false;P.emotion='angry';P.armsUp=false;
-    P.hitCd=0;
+    P.x=340;P.y=560;P.dir=-1;P.walking=false;P.emotion='angry';P.armsUp=false;P.hitCd=0;
   },
   update:function(L,dt){var s=L.state;
     s.time+=dt;game.irr=s.time/s.dur*100;
-    if(s.hiddenT>0){s.hiddenT-=dt;
-      if(s.hiddenT<=0)s.hidden=false;}
+    if(s.hiddenT>0){s.hiddenT-=dt;if(s.hiddenT<=0)s.hidden=false;}
     if(!s.hidden&&s.looking&&P.hitCd<=0){
       P.hitCd=1.5;game.lives--;game.flash=.4;
       tone(150,.3,'sawtooth',.08);
@@ -1799,7 +1810,7 @@ IMPL.boss={
       chip('⏱ '+Math.max(0,s.phase2Dur-s.phase2Time).toFixed(1)+' с',W/2,112,'#ff8fb1');}}
 };
 
-/* ---- 31. WHACK (FIXED: no P mutation) ---- */
+/* ---- 31. WHACK ---- */
 IMPL.whack={
   joystick:false,
   init:function(L){var s=L.state;s.needed=8;s.taps=0;s.holes=[];
@@ -1954,12 +1965,12 @@ IMPL.stack={
     chip('🏗️ '+s.blocks.length+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 35. TIMING (FIXED: proper angle math) ---- */
+/* ---- 35. TIMING ---- */
 IMPL.timing={
   joystick:false,
   init:function(L){var s=L.state;
     s.angle=0;s.speed=2.5;s.hits=0;s.needed=6;
-    s.zoneSize=0.9;  // радианы, ~52°
+    s.zoneSize=0.9;
     Z.x=240;Z.y=680;Z.dir=1;Z.walking=false;P.x=240;P.y=180;P.dir=-1;P.walking=false;
     P.emotion='calm';P.armsUp=false;},
   update:function(L,dt){var s=L.state;
@@ -1969,11 +1980,9 @@ IMPL.timing={
   },
   onTap:function(L,x,y){
     var s=L.state;
-    // Зона сверху (в экранных координатах): -PI/2 = вверх
     var zoneCenter=-Math.PI/2;
     var a=s.angle;
     var diff=a-zoneCenter;
-    // normalize to [-PI, PI]
     while(diff>Math.PI)diff-=TAU;
     while(diff<-Math.PI)diff+=TAU;
     if(Math.abs(diff)<=s.zoneSize/2){
@@ -1993,29 +2002,22 @@ IMPL.timing={
   render:function(L){
     drawFloorBg('#e8dce0','#d8ccd0');var s=L.state;
     var cx=W/2,cy=H/2-40,r=110;
-    // Zone center at top (screen coords: -PI/2)
     var zoneCenter=-Math.PI/2;
     var zStart=zoneCenter-s.zoneSize/2;
     var zEnd=zoneCenter+s.zoneSize/2;
-    // Ring background
     ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=24;
     ctx.beginPath();ctx.arc(cx,cy,r,0,TAU);ctx.stroke();
-    // Zone (green)
     ctx.strokeStyle='#51cf66';ctx.lineWidth=24;
     ctx.beginPath();ctx.arc(cx,cy,r,zStart,zEnd);ctx.stroke();
-    // Zone highlight border
     ctx.strokeStyle='#a8ffbc';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(cx,cy,r-12,zStart,zEnd);ctx.stroke();
     ctx.beginPath();ctx.arc(cx,cy,r+12,zStart,zEnd);ctx.stroke();
-    // Needle
     var ex=cx+Math.cos(s.angle)*r,ey=cy+Math.sin(s.angle)*r;
     ctx.strokeStyle='#ffe066';ctx.lineWidth=6;ctx.lineCap='round';
     ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ex,ey);ctx.stroke();
-    // Center dot
     ctx.fillStyle='#ffe066';ctx.beginPath();ctx.arc(cx,cy,10,0,TAU);ctx.fill();
     ctx.strokeStyle='#fff';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(cx,cy,10,0,TAU);ctx.stroke();
-    // ТАП hint
     ctx.fillStyle='#fff';ctx.font='800 22px -apple-system,system-ui,sans-serif';
     ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('ТАП!',cx,cy+70);
     drawZlata(game.t,{emotion:'serious'});
@@ -2081,7 +2083,7 @@ IMPL.sort={
     chip('🗑️ '+s.sorted+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 37. CLEAN (FIXED: better visibility) ---- */
+/* ---- 37. CLEAN ---- */
 IMPL.clean={
   joystick:false,drag:true,
   init:function(L){var s=L.state;s.dirts=[];s.cleaned=0;s.needed=12;s.time=0;s.dur=25;
@@ -2107,16 +2109,13 @@ IMPL.clean={
   onDragEnd:function(L,x,y){},
   render:function(L){drawFloorBg('#f0e8d5','#e0d5be');var s=L.state;
     for(var i=0;i<s.dirts.length;i++){var d=s.dirts[i];if(d.cleaned)continue;
-      // Ярко-коричневый круг с белой окантовкой
       var g=ctx.createRadialGradient(d.x,d.y,3,d.x,d.y,d.r);
       g.addColorStop(0,'rgba(60,30,10,0.9)');
       g.addColorStop(0.6,'rgba(90,50,20,0.8)');
       g.addColorStop(1,'rgba(90,50,20,0)');
       ctx.fillStyle=g;ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,TAU);ctx.fill();
-      // Белая окантовка
       ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=3;
       ctx.beginPath();ctx.arc(d.x,d.y,d.r*0.85,0,TAU);ctx.stroke();
-      // Emoji
       ctx.font='38px "Apple Color Emoji",sans-serif';
       ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(d.e,d.x,d.y);}
@@ -2228,7 +2227,7 @@ IMPL.bubble={
     chip('🫧 '+s.popped+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 41. SPIN (safer: one life per frame) ---- */
+/* ---- 41. SPIN ---- */
 IMPL.spin={
   joystick:false,
   init:function(L){var s=L.state;s.plates=[];s.time=0;s.dur=15;
@@ -2296,20 +2295,17 @@ IMPL.path={
       rr(ctx,o.x,o.y,o.w,o.h,8);ctx.stroke();
       ctx.font='30px "Apple Color Emoji",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText('⛔',o.x+o.w/2,o.y+o.h/2);}
-    // Path
     ctx.strokeStyle='#51cf66';ctx.lineWidth=6;ctx.lineCap='round';ctx.lineJoin='round';
     ctx.beginPath();
     for(var j=0;j<s.path.length;j++){
       if(j===0)ctx.moveTo(s.path[j].x,s.path[j].y);
       else ctx.lineTo(s.path[j].x,s.path[j].y);}
     ctx.stroke();
-    // Start
     ctx.fillStyle='#4dabf7';ctx.beginPath();ctx.arc(s.start.x,s.start.y,32,0,TAU);ctx.fill();
     ctx.strokeStyle='#fff';ctx.lineWidth=3;
     ctx.beginPath();ctx.arc(s.start.x,s.start.y,32,0,TAU);ctx.stroke();
     ctx.fillStyle='#fff';ctx.font='800 13px -apple-system,system-ui,sans-serif';
     ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('СТАРТ',s.start.x,s.start.y);
-    // End
     ctx.fillStyle='#ffb84d';ctx.beginPath();ctx.arc(s.end.x,s.end.y,32,0,TAU);ctx.fill();
     ctx.strokeStyle='#fff';ctx.lineWidth=3;
     ctx.beginPath();ctx.arc(s.end.x,s.end.y,32,0,TAU);ctx.stroke();
@@ -2473,7 +2469,7 @@ IMPL.zigzag={
     chip('⚡ '+s.caught+' / '+s.needed+' · '+Math.max(0,s.dur-s.time).toFixed(0)+'с',W/2,112,'#ffb84d');}
 };
 
-/* ---- 47. TUNNEL (FIXED: simple in-gap logic, matches render) ---- */
+/* ---- 47. TUNNEL ---- */
 IMPL.tunnel={
   joystick:true,
   init:function(L){
@@ -2489,7 +2485,6 @@ IMPL.tunnel={
   },
   update:function(L,dt){
     var s=L.state;
-    // Move gaps down
     for(var i=0;i<s.gaps.length;i++){
       var g=s.gaps[i];
       g.y+=200*dt;
@@ -2498,9 +2493,7 @@ IMPL.tunnel={
         g.h=rand(140,170);
       }
     }
-    // Move player
     moveZ(dt,220);
-    // Check if player is in ANY gap
     var safe=false;
     for(var i=0;i<s.gaps.length;i++){
       var g=s.gaps[i];
@@ -2508,7 +2501,6 @@ IMPL.tunnel={
       var bot=g.y+H/2+g.h/2;
       if(Z.y>=top && Z.y<=bot){ safe=true; break; }
     }
-    // Damage when in wall
     if(!safe){
       if(!s.inWall){
         s.inWall=true;
@@ -2520,7 +2512,6 @@ IMPL.tunnel={
     } else {
       s.inWall=false;
     }
-    // Progress only when safe
     if(safe){
       s.dist+=200*dt;
     }
@@ -2529,9 +2520,7 @@ IMPL.tunnel={
   },
   render:function(L){
     var s=L.state;
-    // Dark background (shows through gaps)
     ctx.fillStyle='#1a0f28';ctx.fillRect(0,0,W,H);
-    // Draw walls (light purple) outside gaps
     for(var i=0;i<s.gaps.length;i++){
       var g=s.gaps[i];
       var gapTop=g.y+H/2-g.h/2;
@@ -2544,7 +2533,6 @@ IMPL.tunnel={
         ctx.fillRect(0,Math.max(FIELD.y,gapBot),W,FIELD.y+FIELD.h-Math.max(FIELD.y,gapBot));
       }
     }
-    // Wall edges (bright border to be visible)
     ctx.strokeStyle='#ff8fb1';ctx.lineWidth=3;
     for(var i=0;i<s.gaps.length;i++){
       var g=s.gaps[i];
@@ -2557,11 +2545,9 @@ IMPL.tunnel={
         ctx.beginPath();ctx.moveTo(0,gapBot);ctx.lineTo(W,gapBot);ctx.stroke();
       }
     }
-    // Red flash overlay when in wall
     if(s.inWall){
       ctx.fillStyle='rgba(255,0,0,0.2)';ctx.fillRect(0,0,W,H);
     }
-    // Player (rocket)
     ctx.fillStyle='#ffb84d';
     ctx.beginPath();ctx.arc(Z.x,Z.y,22,0,TAU);ctx.fill();
     ctx.strokeStyle='#fff';ctx.lineWidth=3;
@@ -2569,7 +2555,6 @@ IMPL.tunnel={
     ctx.font='28px "Apple Color Emoji",sans-serif';
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('🚀',Z.x,Z.y);
-    // Progress
     ctx.fillStyle='rgba(255,255,255,.15)';rr(ctx,40,H-30,W-80,10,5);ctx.fill();
     ctx.fillStyle='#51cf66';rr(ctx,40,H-30,(W-80)*clamp(s.dist/s.target,0,1),10,5);ctx.fill();
     chip('🕳️ '+Math.floor(s.dist)+' / '+s.target,W/2,112,'#ff8fb1');
@@ -2674,7 +2659,7 @@ IMPL.math={
     chip('🔢 '+s.correct+' / '+s.needed+' · '+Math.max(0,s.dur-s.time).toFixed(0)+'с',W/2,112,'#ffb84d');}
 };
 
-/* ---- 50. ULTIMATE (FIXED: cleaned phase logic) ---- */
+/* ---- 50. ULTIMATE ---- */
 IMPL.ultimate={
   joystick:true,
   shouldUseJoystick:function(L){return L && L.state && L.state.phase === 2;},
@@ -2863,6 +2848,7 @@ function showOverlayHTML(html){
   void overlayContent.offsetWidth;
   overlayContent.style.animation='';
   overlay.classList.add('show');
+  overlay.scrollTop=0;
 }
 function showMenuScreen(){
   appScene='menu';L=null;
@@ -2885,7 +2871,7 @@ function showLevelSelect(){
   appScene='levelSelect';
   pauseBtn.classList.add('hidden');paused=false;
   var html='<div class="ov-emoji">🗂️</div><h1 class="ov-title">Выбор уровня</h1>';
-  html+='<p class="ov-subtitle" style="margin-bottom:12px">Все 50 уровней открыты</p>';
+  html+='<p class="ov-subtitle" style="margin-bottom:12px">Все 50 уровней открыты — листай вниз ⬇️</p>';
   html+='<div class="level-grid">';
   for(var i=1;i<=50;i++){
     var completed=save.completed.indexOf(i)!==-1;
