@@ -31,8 +31,7 @@ canvas{display:block;width:100%;height:100%;}
   -webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;
   touch-action:pan-y;
-  padding:20px 20px max(20px, env(safe-area-inset-bottom)) 20px;
-}
+  padding:20px 20px max(20px, env(safe-area-inset-bottom)) 20px;}
 #overlay.show{visibility:visible;opacity:1;pointer-events:auto;
   transition:opacity .3s ease,visibility 0s 0s;}
 #overlay-content{width:100%;max-width:380px;margin:20px auto;text-align:center;
@@ -87,7 +86,6 @@ canvas{display:block;width:100%;height:100%;}
 (function(){
 'use strict';
 
-/* ================= SETUP ================= */
 var W=480,H=720;
 var canvas=document.getElementById('game');
 var ctx=canvas.getContext('2d');
@@ -106,7 +104,6 @@ window.addEventListener('resize',resize);
 window.addEventListener('orientationchange',function(){setTimeout(resize,200);});
 resize();
 
-/* ================= UTILS ================= */
 var TAU=Math.PI*2;
 function clamp(v,a,b){return v<a?a:(v>b?b:v);}
 function rand(a,b){return a+Math.random()*(b-a);}
@@ -134,7 +131,6 @@ function findFreeSpot(obstacles, padding){
   return {x: FIELD.x+FIELD.w/2, y: FIELD.y+FIELD.h/2};
 }
 
-/* ================= AUDIO ================= */
 var actx=null;
 function ensureAudio(){try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
   if(actx.state==='suspended')actx.resume();}catch(e){}}
@@ -148,8 +144,7 @@ function tone(freq,dur,type,vol,slide,delay){
     g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
     o.connect(g);g.connect(actx.destination);o.start(t0);o.stop(t0+dur+.03);}catch(e){}}
 
-/* ================= SAVE ================= */
-var SAVE_KEY='zp_v6';
+var SAVE_KEY='zp_v8';
 var save={completed:[]};
 function loadSave(){try{var raw=localStorage.getItem(SAVE_KEY);
   if(raw){var p=JSON.parse(raw);
@@ -159,7 +154,6 @@ function loadSave(){try{var raw=localStorage.getItem(SAVE_KEY);
 function persistSave(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(e){}}
 loadSave();
 
-/* ================= INPUT ================= */
 var input={left:false,right:false,up:false,down:false};
 var joy={active:false,ox:0,oy:0,dx:0,dy:0,max:68,pid:null};
 var tapQueued=null;
@@ -232,23 +226,17 @@ window.addEventListener('keyup',function(e){
   if(k==='arrowdown'||k==='s'||k==='ы')input.down=false;
 });
 
-/* === КЛЮЧЕВОЙ ФИКС: разрешаем скролл внутри overlay === */
 document.addEventListener('touchmove',function(e){
   var t = e.target;
-  // Разрешаем скролл, если касание началось внутри overlay
-  if(t && t.closest && t.closest('#overlay')){
-    return; // браузер сам обработает pan-y
-  }
+  if(t && t.closest && t.closest('#overlay'))return;
   e.preventDefault();
 },{passive:false});
 
-/* ================= CHARACTERS ================= */
 var Z={x:0,y:0,dir:1,walking:false,scale:0.85,skin:'#f8d5b8',hair:'#b89b78'};
 var P={x:0,y:0,dir:-1,walking:false,scale:1.1,skin:'#f6d3b6',hair:'#6b4a2f',
   shirt:'#55555e',emotion:'calm',armsUp:false,hitCd:0,stuck:0,sgn:1};
 var FIELD={x:24,y:104,w:W-48,h:H-104-24};
 
-/* ================= STATE ================= */
 var game={irr:0,lives:3,t:0,time:0,flash:0};
 var L=null;
 var appScene='menu';
@@ -257,7 +245,6 @@ var particles=[];
 var floats=[];
 var actionCd=0;
 
-/* ================= PARTICLES ================= */
 function burst(x,y,color,count){
   for(var i=0;i<count;i++)particles.push({
     x:x,y:y,vx:rand(-140,140),vy:rand(-200,-30),
@@ -283,7 +270,6 @@ function drawParticles(){
   ctx.globalAlpha=1;
 }
 
-/* ================= MOVEMENT ================= */
 function clampToField(p){
   p.x=clamp(p.x,FIELD.x+18,FIELD.x+FIELD.w-18);
   p.y=clamp(p.y,FIELD.y+46,FIELD.y+FIELD.h-8);
@@ -342,7 +328,6 @@ function checkCaught(){
   return false;
 }
 
-/* ================= DRAW HELPERS ================= */
 function drawDangerObject(x, y, emoji, radius){
   radius = radius || 28;
   var g = ctx.createRadialGradient(x, y, radius*0.6, x, y, radius*2.2);
@@ -357,9 +342,12 @@ function drawDangerObject(x, y, emoji, radius){
   ctx.fillStyle = bg;ctx.beginPath();ctx.arc(x, y, radius, 0, TAU);ctx.fill();
   ctx.strokeStyle = '#ffffff';ctx.lineWidth = 3.5;
   ctx.beginPath();ctx.arc(x, y, radius, 0, TAU);ctx.stroke();
+  ctx.fillStyle = '#fff';
   ctx.font = Math.floor(radius*1.35) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
   ctx.textAlign = 'center';ctx.textBaseline = 'middle';ctx.fillText(emoji, x, y + 2);
 }
+
+/* ИСПРАВЛЕНО: явный тёмный цвет текста — цифры на пузырях видны */
 function drawCollectible(x, y, emoji, radius){
   radius = radius || 28;
   var g = ctx.createRadialGradient(x, y, radius*0.5, x, y, radius*1.9);
@@ -374,11 +362,12 @@ function drawCollectible(x, y, emoji, radius){
   ctx.beginPath();ctx.arc(x, y, radius, 0, TAU);ctx.stroke();
   ctx.strokeStyle = 'rgba(255,220,120,0.65)';ctx.lineWidth = 1.5;
   ctx.beginPath();ctx.arc(x, y, radius - 4.5, 0, TAU);ctx.stroke();
-  ctx.font = Math.floor(radius * 1.3) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-  ctx.textAlign = 'center';ctx.textBaseline = 'middle';ctx.fillText(emoji, x, y + 2);
+  ctx.fillStyle = '#1a0f28';
+  ctx.font = 'bold ' + Math.floor(radius * 1.05) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",-apple-system,BlinkMacSystemFont,sans-serif';
+  ctx.textAlign = 'center';ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, x, y + 2);
 }
 
-/* ================= DRAW: POLINA ================= */
 function drawPolina(t,opts){
   opts=opts||{};
   var p=P,s=p.scale,dir=p.dir||1,walk=p.walking;
@@ -470,7 +459,6 @@ function drawPolina(t,opts){
   ctx.restore();
 }
 
-/* ================= DRAW: ZLATA ================= */
 function drawDonut(x, y, r, glazeColor) {
   ctx.fillStyle = '#e8cfa6';ctx.beginPath();ctx.arc(x, y, r, 0, TAU);ctx.fill();
   ctx.fillStyle = glazeColor;ctx.beginPath();ctx.arc(x, y, r * 0.95, 0, TAU);ctx.fill();
@@ -551,7 +539,6 @@ function drawZlata(t,opts){
   ctx.restore();
 }
 
-/* ================= BACKGROUNDS ================= */
 function drawRoomBg(){
   ctx.fillStyle='#f6dde5';ctx.fillRect(0,0,W,H);
   ctx.fillStyle='rgba(255,255,255,.4)';
@@ -597,7 +584,6 @@ function drawObstacle(o){
   }
 }
 
-/* ================= HUD ================= */
 function drawHUD(){
   ctx.fillStyle='rgba(26,18,38,.93)';rr(ctx,10,8,W-20,86,18);ctx.fill();
   ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=2;rr(ctx,10,8,W-20,86,18);ctx.stroke();
@@ -654,7 +640,6 @@ function drawJoystick(){
   ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=2;ctx.stroke();
 }
 
-/* ================= LEVEL META (50) ================= */
 var META=[
   {type:'hair',     title:'Фен',           emoji:'💨', hint:'Тапай по розетке — выдерни вилку!'},
   {type:'chase',    title:'Погоня',        emoji:'🏃‍♀️', hint:'Держи джойстик и убегай от Полины!'},
@@ -708,10 +693,8 @@ var META=[
   {type:'ultimate', title:'Ультиматум',    emoji:'🔥', hint:'3 фазы: ТАП → ДЖОЙСТИК → ТАП!'}
 ];
 
-/* ================= LEVEL IMPLEMENTATIONS ================= */
 var IMPL={};
 
-/* ---- 1. HAIR ---- */
 IMPL.hair={
   joystick:false,
   init:function(L){
@@ -777,7 +760,6 @@ IMPL.hair={
   }
 };
 
-/* ---- 2. CHASE ---- */
 IMPL.chase={
   joystick:true,
   init:function(L){var s=L.state;s.time=0;s.dur=10+Math.floor((L.num-1)/10)*2;s.speed=100+Math.floor((L.num-1)/10)*8;
@@ -796,7 +778,6 @@ IMPL.chase={
     chip('⏱ '+Math.max(0,L.state.dur-L.state.time).toFixed(1)+' с',W/2,112,'#ff8fb1');}
 };
 
-/* ---- 3. PROPS ---- */
 IMPL.props={
   joystick:true,
   init:function(L){var s=L.state;s.speed=80+Math.floor((L.num-1)/10)*10;
@@ -837,7 +818,6 @@ IMPL.props={
     chip('💥 '+knocked+' / '+s.props.length,W/2,112,'#ffb84d');}
 };
 
-/* ---- 4. COLLECT ---- */
 IMPL.collect={
   joystick:true,
   init:function(L){var s=L.state;s.speed=110+Math.floor((L.num-1)/10)*8;s.time=0;
@@ -867,7 +847,6 @@ IMPL.collect={
     chip('🧸 '+got+' / '+s.total,W/2,112,'#ff8fb1');}
 };
 
-/* ---- 5. RHYTHM ---- */
 IMPL.rhythm={
   joystick:false,
   init:function(L){var s=L.state;s.needed=6+Math.floor((L.num-1)/10)*2;s.taps=0;s.pots=[];s.spawnT=0;
@@ -895,7 +874,6 @@ IMPL.rhythm={
     chip('🥁 '+s.taps+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 6. SNEAK ---- */
 IMPL.sneak={
   joystick:true,
   init:function(L){var s=L.state;s.speed=50+Math.floor((L.num-1)/10)*10;
@@ -938,7 +916,6 @@ IMPL.sneak={
     chip('🍪 '+Math.round(game.irr)+'%',W/2,112,'#7cbfd3');}
 };
 
-/* ---- 7. BALLOON ---- */
 IMPL.balloon={
   joystick:false,
   init:function(L){var s=L.state;s.needed=8+Math.floor((L.num-1)/10)*2;s.popped=0;s.balloons=[];s.spawnT=0;
@@ -969,7 +946,6 @@ IMPL.balloon={
     chip('🎈 '+s.popped+' / '+s.needed,W/2,112,'#ff8fb1');}
 };
 
-/* ---- 8. MEMORY ---- */
 IMPL.memory={
   joystick:false,
   init:function(L){var s=L.state;s.colors=['#ff6b81','#4dabf7','#51cf66','#ffd43b'];
@@ -1009,7 +985,6 @@ IMPL.memory={
     chip('🎨 '+s.userIdx+' / '+s.sequence.length,W/2,112,'#ffb84d');}
 };
 
-/* ---- 9. DODGE ---- */
 IMPL.dodge={
   joystick:true,
   init:function(L){var s=L.state;s.time=0;s.dur=10+Math.floor((L.num-1)/10)*2;s.objects=[];s.spawnT=1.0;
@@ -1036,7 +1011,6 @@ IMPL.dodge={
     chip('⏱ '+Math.max(0,s.dur-s.time).toFixed(1)+' с',W/2,112,'#ff8fb1');}
 };
 
-/* ---- 10. MASH ---- */
 IMPL.mash={
   joystick:false,
   init:function(L){var s=L.state;s.needed=20+Math.floor((L.num-1)/10)*5;s.taps=0;s.polinaTaps=0;
@@ -1070,7 +1044,6 @@ IMPL.mash={
     ctx.fillStyle='#ff6b81';ctx.fillText('Полина: '+Math.floor(s.polinaTaps),66,564);}
 };
 
-/* ---- 11. FRIDGE ---- */
 IMPL.fridge={
   joystick:false,
   init:function(L){var s=L.state;s.needed=3+Math.floor((L.num-1)/10);s.grabbed=0;
@@ -1106,7 +1079,6 @@ IMPL.fridge={
     chip('🍕 '+s.grabbed+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 12. PHONE ---- */
 IMPL.phone={
   joystick:false,
   init:function(L){var s=L.state;
@@ -1180,7 +1152,6 @@ IMPL.phone={
   }
 };
 
-/* ---- 13. DRAW ---- */
 IMPL.draw={
   joystick:false,drag:true,
   init:function(L){var s=L.state;s.path=[];
@@ -1212,7 +1183,6 @@ IMPL.draw={
     chip('✏️ '+Math.round(s.progress/s.path.length*100)+'%',W/2,112,'#ffb84d');}
 };
 
-/* ---- 14. HIDE ---- */
 IMPL.hide={
   joystick:false,
   init:function(L){var s=L.state;s.needed=4+Math.floor((L.num-1)/10);s.correct=0;
@@ -1242,7 +1212,6 @@ IMPL.hide={
     chip('🛏️ '+s.correct+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 15. CATCH ---- */
 IMPL.catch={
   joystick:true,
   init:function(L){var s=L.state;s.needed=8+Math.floor((L.num-1)/10)*2;s.caught=0;s.candies=[];s.spawnT=0.5;
@@ -1277,7 +1246,6 @@ IMPL.catch={
     chip('🍬 '+s.caught+' / '+s.needed,W/2,112,'#ff8fb1');}
 };
 
-/* ---- 16. FIND ---- */
 IMPL.find={
   joystick:false,
   init:function(L){var s=L.state;s.grid=[];s.size=3+Math.floor((L.num-1)/10);
@@ -1311,7 +1279,6 @@ IMPL.find={
     chip('🔍 '+s.target,W/2,112,'#ffb84d');}
 };
 
-/* ---- 17. SIMON ---- */
 IMPL.simon={
   joystick:false,
   init:function(L){var s=L.state;s.colors=['#ff6b81','#4dabf7','#51cf66','#ffd43b'];
@@ -1350,7 +1317,6 @@ IMPL.simon={
     chip('🌟 '+s.userIdx+' / '+s.sequence.length,W/2,112,'#ffb84d');}
 };
 
-/* ---- 18. RACE ---- */
 IMPL.race={
   joystick:true,
   init:function(L){var s=L.state;s.finishX=W-40;s.time=0;s.dur=15+Math.floor((L.num-1)/10)*2;
@@ -1371,7 +1337,6 @@ IMPL.race={
     chip('🏁 '+Math.max(0,s.dur-s.time).toFixed(1)+' с',W/2,112,'#51cf66');}
 };
 
-/* ---- 19. SLEEP ---- */
 IMPL.sleep={
   joystick:false,
   init:function(L){var s=L.state;s.needed=4+Math.floor((L.num-1)/10);s.correct=0;
@@ -1403,7 +1368,6 @@ IMPL.sleep={
     chip('😴 '+s.correct+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 20. BUTTON ---- */
 IMPL.button={
   joystick:false,
   init:function(L){var s=L.state;s.needed=20+Math.floor((L.num-1)/10)*4;s.taps=0;s.time=0;
@@ -1428,7 +1392,6 @@ IMPL.button={
     chip('🔴 '+s.taps+' / '+s.needed,W/2,112,'#ff8fb1');}
 };
 
-/* ---- 21. MOUSE ---- */
 IMPL.mouse={
   joystick:false,
   init:function(L){var s=L.state;s.needed=5+Math.floor((L.num-1)/10);s.caught=0;
@@ -1454,7 +1417,6 @@ IMPL.mouse={
     chip('🐭 '+s.caught+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 22. DOORS ---- */
 IMPL.doors={
   joystick:false,
   init:function(L){var s=L.state;s.needed=4+Math.floor((L.num-1)/10);s.correct=0;s.doors=[];
@@ -1493,7 +1455,6 @@ IMPL.doors={
     chip('🚪 '+s.correct+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 23. COOKIES ---- */
 IMPL.cookies={
   joystick:false,
   init:function(L){var s=L.state;s.needed=8+Math.floor((L.num-1)/10)*2;s.eaten=0;s.cookies=[];s.spawnT=0;
@@ -1521,7 +1482,6 @@ IMPL.cookies={
     chip('🍪 '+s.eaten+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 24. MIRROR ---- */
 IMPL.mirror={
   joystick:false,
   init:function(L){var s=L.state;s.needed=4+Math.floor((L.num-1)/10);s.correct=0;
@@ -1557,7 +1517,6 @@ IMPL.mirror={
     chip('🪞 '+s.correct+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 25. OBSTACLE ---- */
 IMPL.obstacle={
   joystick:false,
   init:function(L){var s=L.state;s.dist=0;s.target=1000+Math.floor((L.num-1)/10)*100;
@@ -1602,7 +1561,6 @@ IMPL.obstacle={
       ctx.textBaseline='middle';ctx.fillText('ТАП — ПРЫЖОК',W/2,H-190);}}
 };
 
-/* ---- 26. PUZZLE ---- */
 IMPL.puzzle={
   joystick:false,
   init:function(L){var s=L.state;s.emojis=['🍎','🍌','🍇','🍓','🍒','🍑'];s.tiles=[0,1,2];
@@ -1638,7 +1596,6 @@ IMPL.puzzle={
     chip('🧩 '+correct+' / 3',W/2,112,'#ffb84d');}
 };
 
-/* ---- 27. LASER ---- */
 IMPL.laser={
   joystick:true,
   init:function(L){var s=L.state;s.goalX=W-60;s.lasers=[];
@@ -1679,7 +1636,6 @@ IMPL.laser={
     chip('⚡ '+Math.round(game.irr)+'%',W/2,112,'#ff5050');}
 };
 
-/* ---- 28. PIANO ---- */
 IMPL.piano={
   joystick:false,
   init:function(L){var s=L.state;s.notes=['C','D','E','F'];s.noteFreq=[262,294,330,349];
@@ -1717,7 +1673,6 @@ IMPL.piano={
     chip('🎹 '+s.userIdx+' / '+s.sequence.length,W/2,112,'#ffb84d');}
 };
 
-/* ---- 29. MAZE ---- */
 IMPL.maze={
   joystick:true,
   init:function(L){var s=L.state;
@@ -1749,7 +1704,6 @@ IMPL.maze={
     chip('🌀 ВЫХОД → 🍪',W/2,112,'#ffb84d');}
 };
 
-/* ---- 30. BOSS ---- */
 IMPL.boss={
   joystick:true,
   shouldUseJoystick:function(L){return L && L.state && L.state.phase === 2;},
@@ -1810,7 +1764,6 @@ IMPL.boss={
       chip('⏱ '+Math.max(0,s.phase2Dur-s.phase2Time).toFixed(1)+' с',W/2,112,'#ff8fb1');}}
 };
 
-/* ---- 31. WHACK ---- */
 IMPL.whack={
   joystick:false,
   init:function(L){var s=L.state;s.needed=8;s.taps=0;s.holes=[];
@@ -1853,7 +1806,6 @@ IMPL.whack={
     chip('🔨 '+s.taps+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 32. MATCH ---- */
 IMPL.match={
   joystick:false,
   init:function(L){var s=L.state;
@@ -1903,7 +1855,6 @@ IMPL.match={
     chip('🃏 '+s.matched+' / 6',W/2,112,'#ffb84d');}
 };
 
-/* ---- 33. AVOID ---- */
 IMPL.avoid={
   joystick:true,
   init:function(L){var s=L.state;s.time=0;s.dur=15;s.balls=[];s.spawnT=0.5;
@@ -1928,7 +1879,6 @@ IMPL.avoid={
     chip('🎾 '+Math.max(0,s.dur-s.time).toFixed(1)+' с',W/2,112,'#ff8fb1');}
 };
 
-/* ---- 34. STACK ---- */
 IMPL.stack={
   joystick:false,
   init:function(L){var s=L.state;s.blocks=[];s.current={x:W/2,dir:1,speed:180,w:80,h:30};s.needed=6;
@@ -1965,7 +1915,6 @@ IMPL.stack={
     chip('🏗️ '+s.blocks.length+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 35. TIMING ---- */
 IMPL.timing={
   joystick:false,
   init:function(L){var s=L.state;
@@ -2025,7 +1974,6 @@ IMPL.timing={
   }
 };
 
-/* ---- 36. SORT ---- */
 IMPL.sort={
   joystick:false,drag:true,
   init:function(L){var s=L.state;
@@ -2083,7 +2031,6 @@ IMPL.sort={
     chip('🗑️ '+s.sorted+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 37. CLEAN ---- */
 IMPL.clean={
   joystick:false,drag:true,
   init:function(L){var s=L.state;s.dirts=[];s.cleaned=0;s.needed=12;s.time=0;s.dur=25;
@@ -2123,37 +2070,81 @@ IMPL.clean={
     chip('🧽 '+s.cleaned+' / '+s.needed+' · '+Math.max(0,s.dur-s.time).toFixed(0)+'с',W/2,112,'#ffb84d');}
 };
 
-/* ---- 38. SHOOT ---- */
+/* ИСПРАВЛЕНО: мишени спавнятся и летят В экран (не наружу) + 3 стартовые видны сразу */
 IMPL.shoot={
   joystick:false,
-  init:function(L){var s=L.state;s.hits=0;s.needed=10;s.targets=[];s.spawnT=0.5;s.time=0;s.dur=20;
+  init:function(L){
+    var s=L.state;
+    s.hits=0;
+    s.needed=10;
+    s.targets=[];
+    s.spawnT=0.3;
+    s.time=0;
+    s.dur=20;
+    for(var i=0;i<3;i++){
+      s.targets.push({
+        x:rand(FIELD.x+80,FIELD.x+FIELD.w-80),
+        y:rand(FIELD.y+100,FIELD.y+FIELD.h-80),
+        vx:rand(-80,80),
+        e:'🎯',
+        r:30
+      });
+    }
     Z.x=240;Z.y=680;Z.dir=1;Z.walking=false;P.x=240;P.y=180;P.dir=-1;P.walking=false;
-    P.emotion='calm';P.armsUp=false;},
-  update:function(L,dt){var s=L.state;s.time+=dt;s.spawnT-=dt;
-    if(s.spawnT<=0&&s.targets.length<4){
-      var side=Math.random()<.5?-1:1;
-      s.targets.push({x:side<0?-30:W+30,y:rand(FIELD.y+80,FIELD.y+FIELD.h-60),
-        vx:side*rand(80,140),e:'🎯',r:30});
-      s.spawnT=Math.max(.5,1.2-Math.floor((L.num-1)/10)*.06);}
-    for(var i=s.targets.length-1;i>=0;i--){var t=s.targets[i];
+    P.emotion='calm';P.armsUp=false;
+  },
+  update:function(L,dt){
+    var s=L.state;
+    s.time+=dt;
+    s.spawnT-=dt;
+    if(s.spawnT<=0 && s.targets.length<5){
+      var fromLeft=Math.random()<.5;
+      s.targets.push({
+        x:fromLeft ? -40 : W+40,
+        y:rand(FIELD.y+80,FIELD.y+FIELD.h-60),
+        vx:fromLeft ? rand(80,140) : -rand(80,140),
+        e:'🎯',
+        r:30
+      });
+      s.spawnT=Math.max(.5,1.2-Math.floor((L.num-1)/10)*.06);
+    }
+    for(var i=s.targets.length-1;i>=0;i--){
+      var t=s.targets[i];
       t.x+=t.vx*dt;
-      if(t.x<-50||t.x>W+50){s.targets.splice(i,1);continue;}}
+      if(t.x < FIELD.x+30){t.x=FIELD.x+30;t.vx=Math.abs(t.vx);}
+      if(t.x > FIELD.x+FIELD.w-30){t.x=FIELD.x+FIELD.w-30;t.vx=-Math.abs(t.vx);}
+    }
     game.irr=s.hits/s.needed*100;
-    if(s.time>=s.dur&&!L.won&&s.hits<s.needed){triggerLose();}},
-  onTap:function(L,x,y){var s=L.state;
-    for(var i=s.targets.length-1;i>=0;i--){var t=s.targets[i];
-      if(Math.hypot(x-t.x,y-t.y)<t.r+10){s.hits++;game.irr=s.hits/s.needed*100;
-        tone(700,.1,'square',.08,900);burst(t.x,t.y,'#ffe066',10);
-        ftext(t.x,t.y-30,'+1','#ffe066');s.targets.splice(i,1);
-        if(s.hits>=s.needed&&!L.won){L.won=true;triggerWin();}return;}}},
-  render:function(L){drawFloorBg('#e0d5f0','#d0c0e0');var s=L.state;
-    for(var i=0;i<s.targets.length;i++){var t=s.targets[i];
-      drawCollectible(t.x,t.y,t.e,26);}
+    if(s.time>=s.dur && !L.won && s.hits<s.needed){triggerLose();}
+  },
+  onTap:function(L,x,y){
+    var s=L.state;
+    for(var i=s.targets.length-1;i>=0;i--){
+      var t=s.targets[i];
+      if(Math.hypot(x-t.x,y-t.y)<t.r+14){
+        s.hits++;
+        game.irr=s.hits/s.needed*100;
+        tone(700,.1,'square',.08,900);
+        burst(t.x,t.y,'#ffe066',10);
+        ftext(t.x,t.y-30,'+1','#ffe066');
+        s.targets.splice(i,1);
+        if(s.hits>=s.needed&&!L.won){L.won=true;triggerWin();}
+        return;
+      }
+    }
+  },
+  render:function(L){
+    drawFloorBg('#e0d5f0','#d0c0e0');
+    var s=L.state;
+    for(var i=0;i<s.targets.length;i++){
+      var t=s.targets[i];
+      drawCollectible(t.x,t.y,t.e,26);
+    }
     drawZlata(game.t,{emotion:'serious'});
-    chip('🎯 '+s.hits+' / '+s.needed+' · '+Math.max(0,s.dur-s.time).toFixed(0)+'с',W/2,112,'#ffb84d');}
+    chip('🎯 '+s.hits+' / '+s.needed+' · '+Math.max(0,s.dur-s.time).toFixed(0)+'с',W/2,112,'#ffb84d');
+  }
 };
 
-/* ---- 39. CONNECT ---- */
 IMPL.connect={
   joystick:false,drag:true,
   init:function(L){var s=L.state;s.dots=[];
@@ -2189,14 +2180,13 @@ IMPL.connect={
       ctx.beginPath();ctx.arc(d.x,d.y,26,0,TAU);ctx.fill();
       ctx.strokeStyle='#ffb84d';ctx.lineWidth=3;
       ctx.beginPath();ctx.arc(d.x,d.y,26,0,TAU);ctx.stroke();
-      ctx.fillStyle=active?'#fff':'#241730';
+      ctx.fillStyle=active?'#fff':'#1a0f28';
       ctx.font='800 18px -apple-system,system-ui,sans-serif';
       ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(d.num,d.x,d.y+1);}
     drawZlata(game.t,{emotion:'serious'});
     chip('🔗 '+s.current+' / '+s.dots.length,W/2,112,'#ffb84d');}
 };
 
-/* ---- 40. BUBBLE ---- */
 IMPL.bubble={
   joystick:false,
   init:function(L){var s=L.state;s.needed=8+Math.floor((L.num-1)/10);s.popped=0;s.bubbles=[];
@@ -2227,7 +2217,6 @@ IMPL.bubble={
     chip('🫧 '+s.popped+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 41. SPIN ---- */
 IMPL.spin={
   joystick:false,
   init:function(L){var s=L.state;s.plates=[];s.time=0;s.dur=15;
@@ -2260,7 +2249,6 @@ IMPL.spin={
     chip('🍽️ '+Math.max(0,s.dur-s.time).toFixed(1)+' с',W/2,112,'#ffb84d');}
 };
 
-/* ---- 42. PATH ---- */
 IMPL.path={
   joystick:false,drag:true,
   init:function(L){var s=L.state;
@@ -2314,7 +2302,6 @@ IMPL.path={
     chip('🛤️ Проведи линию Старт→Финиш',W/2,112,'#ffb84d');}
 };
 
-/* ---- 43. LIGHTS ---- */
 IMPL.lights={
   joystick:false,
   init:function(L){var s=L.state;s.hits=0;s.needed=10;s.lights=[];s.activeIdx=-1;s.timer=0;s.spawnT=1;
@@ -2353,7 +2340,6 @@ IMPL.lights={
     chip('💡 '+s.hits+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 44. BUTTONS ---- */
 IMPL.buttons={
   joystick:false,
   init:function(L){var s=L.state;s.colors=['#ff6b81','#4dabf7','#51cf66','#ffd43b'];
@@ -2396,7 +2382,6 @@ IMPL.buttons={
     chip('🎛️ Раунд '+(s.round+1)+' / '+s.rounds,W/2,112,'#ffb84d');}
 };
 
-/* ---- 45. CROSS ---- */
 IMPL.cross={
   joystick:true,
   init:function(L){var s=L.state;s.cars=[];s.lanes=5;s.laneH=(FIELD.h-40)/s.lanes;
@@ -2438,7 +2423,6 @@ IMPL.cross={
     chip('🚗 Перейди дорогу!',W/2,112,'#ffb84d');}
 };
 
-/* ---- 46. ZIGZAG ---- */
 IMPL.zigzag={
   joystick:true,
   init:function(L){var s=L.state;s.time=0;s.dur=20;s.items=[];s.spawnT=0.5;s.caught=0;s.needed=10;
@@ -2469,99 +2453,144 @@ IMPL.zigzag={
     chip('⚡ '+s.caught+' / '+s.needed+' · '+Math.max(0,s.dur-s.time).toFixed(0)+'с',W/2,112,'#ffb84d');}
 };
 
-/* ---- 47. TUNNEL ---- */
+/* ИСПРАВЛЕНО ПОЛНОСТЬЮ: тоннель с прокручивающимися проёмами */
 IMPL.tunnel={
   joystick:true,
   init:function(L){
     var s=L.state;
-    s.dist=0;s.target=1200;
+    s.dist=0;
+    s.target=1400;
+    s.speed=150;      // скорость прокрутки проёмов
+    s.spacing=210;    // расстояние между проёмами
+    s.gapH=170;       // высота проёма (стена = 40)
     s.gaps=[];
     for(var i=0;i<8;i++){
-      s.gaps.push({y:-100+i*200,h:rand(140,170)});
+      s.gaps.push({
+        y: FIELD.y - 400 + i * s.spacing,
+        h: s.gapH
+      });
     }
+    s.spawnTimer=0;
     s.inWall=false;
-    Z.x=W/2;Z.y=H/2;Z.dir=1;Z.walking=false;
-    P.x=240;P.y=180;P.dir=-1;P.walking=false;P.emotion='calm';P.armsUp=false;
+    // Игрок стартует ВНУТРИ первого проёма
+    Z.x=W/2;
+    Z.y=FIELD.y + 20 + s.gapH/2;  // в середине первого проёма
+    Z.dir=1;
+    Z.walking=false;
+    P.x=240;P.y=180;P.dir=-1;P.walking=false;
+    P.emotion='calm';P.armsUp=false;
   },
   update:function(L,dt){
     var s=L.state;
+    // Прокрутка проёмов вниз
     for(var i=0;i<s.gaps.length;i++){
-      var g=s.gaps[i];
-      g.y+=200*dt;
-      if(g.y>H+100){
-        g.y=-100;
-        g.h=rand(140,170);
+      s.gaps[i].y += s.speed * dt;
+    }
+    // Удаляем проёмы, ушедшие ниже поля
+    var newGaps=[];
+    for(var i=0;i<s.gaps.length;i++){
+      if(s.gaps[i].y < FIELD.y + FIELD.h + 60){
+        newGaps.push(s.gaps[i]);
       }
     }
-    moveZ(dt,220);
-    var safe=false;
+    s.gaps = newGaps;
+    // Добавляем новые проёмы сверху
+    s.spawnTimer -= dt;
+    if(s.gaps.length < 6 && s.spawnTimer <= 0){
+      var topY = (s.gaps.length > 0) ? s.gaps[0].y - s.spacing : FIELD.y - 400;
+      s.gaps.unshift({y: topY, h: s.gapH});
+      s.spawnTimer = 0.05;
+    }
+    // Движение игрока
+    moveZ(dt, 260);
+    // Проверка: игрок в ЛЮБОМ проёме?
+    var safe = false;
     for(var i=0;i<s.gaps.length;i++){
-      var g=s.gaps[i];
-      var top=g.y+H/2-g.h/2;
-      var bot=g.y+H/2+g.h/2;
-      if(Z.y>=top && Z.y<=bot){ safe=true; break; }
+      var g = s.gaps[i];
+      if(Z.y >= g.y && Z.y <= g.y + g.h){
+        safe = true;
+        break;
+      }
     }
     if(!safe){
       if(!s.inWall){
-        s.inWall=true;
+        s.inWall = true;
         game.lives--;
-        game.flash=.4;
-        tone(150,.3,'sawtooth',.08);
-        if(game.lives<=0){ triggerLose(); return; }
+        game.flash = .4;
+        tone(150, .3, 'sawtooth', .08);
+        if(game.lives <= 0){ triggerLose(); return; }
       }
     } else {
-      s.inWall=false;
+      s.inWall = false;
+      s.dist += 220 * dt;
     }
-    if(safe){
-      s.dist+=200*dt;
-    }
-    game.irr=clamp(s.dist/s.target*100,0,100);
-    if(s.dist>=s.target&&!L.won){ L.won=true; triggerWin(); }
+    game.irr = clamp(s.dist / s.target * 100, 0, 100);
+    if(s.dist >= s.target && !L.won){ L.won = true; triggerWin(); }
   },
   render:function(L){
-    var s=L.state;
-    ctx.fillStyle='#1a0f28';ctx.fillRect(0,0,W,H);
+    var s = L.state;
+    // Тёмный фон (космос)
+    ctx.fillStyle = '#1a0f28';
+    ctx.fillRect(0, 0, W, H);
+    // Светлая "стена" - весь прямоугольник поля
+    ctx.fillStyle = '#5a4a7a';
+    ctx.fillRect(FIELD.x, FIELD.y, FIELD.w, FIELD.h);
+    // Проёмы (тёмные окна) поверх стены
     for(var i=0;i<s.gaps.length;i++){
-      var g=s.gaps[i];
-      var gapTop=g.y+H/2-g.h/2;
-      var gapBot=g.y+H/2+g.h/2;
-      ctx.fillStyle='#5a4a7a';
-      if(gapTop>FIELD.y){
-        ctx.fillRect(0,FIELD.y,W,Math.max(0,Math.min(gapTop,FIELD.y+FIELD.h)-FIELD.y));
-      }
-      if(gapBot<FIELD.y+FIELD.h){
-        ctx.fillRect(0,Math.max(FIELD.y,gapBot),W,FIELD.y+FIELD.h-Math.max(FIELD.y,gapBot));
+      var g = s.gaps[i];
+      var top = Math.max(g.y, FIELD.y);
+      var bot = Math.min(g.y + g.h, FIELD.y + FIELD.h);
+      if(bot > top){
+        // Тёмный проём
+        ctx.fillStyle = '#1a0f28';
+        ctx.fillRect(FIELD.x, top, FIELD.w, bot - top);
+        // Светлая окантовка
+        ctx.strokeStyle = '#ff8fb1';
+        ctx.lineWidth = 3;
+        if(g.y >= FIELD.y && g.y < FIELD.y + FIELD.h){
+          ctx.beginPath();
+          ctx.moveTo(FIELD.x, g.y);
+          ctx.lineTo(FIELD.x + FIELD.w, g.y);
+          ctx.stroke();
+        }
+        if(g.y + g.h > FIELD.y && g.y + g.h <= FIELD.y + FIELD.h){
+          ctx.beginPath();
+          ctx.moveTo(FIELD.x, g.y + g.h);
+          ctx.lineTo(FIELD.x + FIELD.w, g.y + g.h);
+          ctx.stroke();
+        }
       }
     }
-    ctx.strokeStyle='#ff8fb1';ctx.lineWidth=3;
-    for(var i=0;i<s.gaps.length;i++){
-      var g=s.gaps[i];
-      var gapTop=g.y+H/2-g.h/2;
-      var gapBot=g.y+H/2+g.h/2;
-      if(gapTop>FIELD.y && gapTop<FIELD.y+FIELD.h){
-        ctx.beginPath();ctx.moveTo(0,gapTop);ctx.lineTo(W,gapTop);ctx.stroke();
-      }
-      if(gapBot>FIELD.y && gapBot<FIELD.y+FIELD.h){
-        ctx.beginPath();ctx.moveTo(0,gapBot);ctx.lineTo(W,gapBot);ctx.stroke();
-      }
-    }
+    // Красная подсветка если в стене
     if(s.inWall){
-      ctx.fillStyle='rgba(255,0,0,0.2)';ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = 'rgba(255,0,0,0.2)';
+      ctx.fillRect(0, 0, W, H);
     }
-    ctx.fillStyle='#ffb84d';
-    ctx.beginPath();ctx.arc(Z.x,Z.y,22,0,TAU);ctx.fill();
-    ctx.strokeStyle='#fff';ctx.lineWidth=3;
-    ctx.beginPath();ctx.arc(Z.x,Z.y,22,0,TAU);ctx.stroke();
-    ctx.font='28px "Apple Color Emoji",sans-serif';
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('🚀',Z.x,Z.y);
-    ctx.fillStyle='rgba(255,255,255,.15)';rr(ctx,40,H-30,W-80,10,5);ctx.fill();
-    ctx.fillStyle='#51cf66';rr(ctx,40,H-30,(W-80)*clamp(s.dist/s.target,0,1),10,5);ctx.fill();
-    chip('🕳️ '+Math.floor(s.dist)+' / '+s.target,W/2,112,'#ff8fb1');
+    // Ракета
+    ctx.fillStyle = '#ffb84d';
+    ctx.beginPath();
+    ctx.arc(Z.x, Z.y, 22, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(Z.x, Z.y, 22, 0, TAU);
+    ctx.stroke();
+    ctx.font = '28px "Apple Color Emoji",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🚀', Z.x, Z.y);
+    // Прогресс
+    ctx.fillStyle = 'rgba(255,255,255,.15)';
+    rr(ctx, 40, H-30, W-80, 10, 5);
+    ctx.fill();
+    ctx.fillStyle = '#51cf66';
+    rr(ctx, 40, H-30, (W-80) * clamp(s.dist/s.target, 0, 1), 10, 5);
+    ctx.fill();
+    chip('🕳️ ' + Math.floor(s.dist) + ' / ' + s.target, W/2, 112, '#ff8fb1');
   }
 };
 
-/* ---- 48. FISH ---- */
 IMPL.fish={
   joystick:false,
   init:function(L){var s=L.state;s.caught=0;s.needed=5;s.lineY=200;s.lineTarget=200;
@@ -2605,7 +2634,6 @@ IMPL.fish={
     chip('🎣 '+s.caught+' / '+s.needed,W/2,112,'#ffb84d');}
 };
 
-/* ---- 49. MATH ---- */
 IMPL.math={
   joystick:false,
   init:function(L){var s=L.state;s.correct=0;s.needed=8;s.time=0;s.dur=30;
@@ -2659,7 +2687,6 @@ IMPL.math={
     chip('🔢 '+s.correct+' / '+s.needed+' · '+Math.max(0,s.dur-s.time).toFixed(0)+'с',W/2,112,'#ffb84d');}
 };
 
-/* ---- 50. ULTIMATE ---- */
 IMPL.ultimate={
   joystick:true,
   shouldUseJoystick:function(L){return L && L.state && L.state.phase === 2;},
@@ -2711,7 +2738,7 @@ IMPL.ultimate={
       if(s.spawnT3<=0&&s.phase3Targets.length<3){
         var side=Math.random()<.5?-1:1;
         s.phase3Targets.push({x:side<0?-40:W+40,y:rand(FIELD.y+100,FIELD.y+FIELD.h-100),
-          vx:side*rand(100,150),e:'🎯',r:32});
+          vx:side<0?rand(100,150):-rand(100,150),e:'🎯',r:32});
         s.spawnT3=.6;
       }
       for(var i=s.phase3Targets.length-1;i>=0;i--){var t=s.phase3Targets[i];
@@ -2792,7 +2819,6 @@ IMPL.ultimate={
   }
 };
 
-/* ================= LEVEL INIT/UPDATE/RENDER ================= */
 function initLevel(num){
   var meta=META[num-1];
   L={num:num,meta:meta,impl:IMPL[meta.type],state:{},obs:[],won:false,t:0};
@@ -2815,7 +2841,6 @@ function renderLevel(){
   if(L.impl.render)try{L.impl.render(L);}catch(e){console.error(e);}
 }
 
-/* ================= TRANSITIONS ================= */
 function triggerWin(){
   if(appScene!=='play')return;
   appScene='win';
@@ -2840,7 +2865,6 @@ function triggerLose(){
   showLoseScreen();
 }
 
-/* ================= OVERLAYS ================= */
 function hideOverlay(){overlay.classList.remove('show');overlay.scrollTop=0;}
 function showOverlayHTML(html){
   overlayContent.innerHTML=html;
@@ -2941,7 +2965,6 @@ function showPauseScreen(){
   showOverlayHTML(html);
 }
 
-/* ================= ACTIONS ================= */
 function validLevel(n){return Number.isFinite(n)&&n>=1&&n<=50;}
 function actionPlayNext(){
   if(appScene!=='menu')return;
@@ -3001,7 +3024,6 @@ overlay.addEventListener('click',function(e){
   else if(a==='reset-progress')actionResetProgress();
 });
 
-/* ================= MAIN LOOP ================= */
 var lastTime=0;
 function loop(ts){
   try{
@@ -3054,7 +3076,6 @@ function render(){
   }
 }
 
-/* ================= START ================= */
 showMenuScreen();
 requestAnimationFrame(loop);
 })();
