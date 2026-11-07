@@ -144,7 +144,7 @@ function tone(freq,dur,type,vol,slide,delay){
     g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
     o.connect(g);g.connect(actx.destination);o.start(t0);o.stop(t0+dur+.03);}catch(e){}}
 
-var SAVE_KEY='zp_v8';
+var SAVE_KEY='zp_v9';
 var save={completed:[]};
 function loadSave(){try{var raw=localStorage.getItem(SAVE_KEY);
   if(raw){var p=JSON.parse(raw);
@@ -347,7 +347,6 @@ function drawDangerObject(x, y, emoji, radius){
   ctx.textAlign = 'center';ctx.textBaseline = 'middle';ctx.fillText(emoji, x, y + 2);
 }
 
-/* ИСПРАВЛЕНО: явный тёмный цвет текста — цифры на пузырях видны */
 function drawCollectible(x, y, emoji, radius){
   radius = radius || 28;
   var g = ctx.createRadialGradient(x, y, radius*0.5, x, y, radius*1.9);
@@ -687,7 +686,7 @@ var META=[
   {type:'buttons',  title:'Кнопки',        emoji:'🎛️', hint:'Повтори последовательность цветов!'},
   {type:'cross',    title:'Дорога',        emoji:'🚗', hint:'Перейди дорогу джойстиком, избегая машин!'},
   {type:'zigzag',   title:'Зигзаг',        emoji:'⚡', hint:'Лови падающие предметы, избегай бомб!'},
-  {type:'tunnel',   title:'Тоннель',       emoji:'🕳️', hint:'Управляй ракетой — держись в тёмных проёмах!'},
+  {type:'tunnel',   title:'Тоннель',       emoji:'🕳️', hint:'Веди ракету в проёмы: джойстик влево/вправо!'},
   {type:'fish',     title:'Рыбалка',       emoji:'🎣', hint:'Тапни, когда рыба на крючке!'},
   {type:'math',     title:'Счёт',          emoji:'🔢', hint:'Реши пример — тапни правильный ответ!'},
   {type:'ultimate', title:'Ультиматум',    emoji:'🔥', hint:'3 фазы: ТАП → ДЖОЙСТИК → ТАП!'}
@@ -2070,7 +2069,6 @@ IMPL.clean={
     chip('🧽 '+s.cleaned+' / '+s.needed+' · '+Math.max(0,s.dur-s.time).toFixed(0)+'с',W/2,112,'#ffb84d');}
 };
 
-/* ИСПРАВЛЕНО: мишени спавнятся и летят В экран (не наружу) + 3 стартовые видны сразу */
 IMPL.shoot={
   joystick:false,
   init:function(L){
@@ -2453,140 +2451,159 @@ IMPL.zigzag={
     chip('⚡ '+s.caught+' / '+s.needed+' · '+Math.max(0,s.dur-s.time).toFixed(0)+'с',W/2,112,'#ffb84d');}
 };
 
-/* ИСПРАВЛЕНО ПОЛНОСТЬЮ: тоннель с прокручивающимися проёмами */
+/* ============================================================
+   УРОВЕНЬ 47: ТОННЕЛЬ — ПОЛНОСТЬЮ ПЕРЕДЕЛАН
+   Механика: горизонтальные ТОНКИЕ стены с щелью (проёмом).
+   Стены катятся вниз. Игрок двигает ракету влево/вправо
+   (и вверх/вниз) так, чтобы оказаться в проёме каждой стены.
+   ============================================================ */
 IMPL.tunnel={
   joystick:true,
   init:function(L){
     var s=L.state;
     s.dist=0;
     s.target=1400;
-    s.speed=150;      // скорость прокрутки проёмов
-    s.spacing=210;    // расстояние между проёмами
-    s.gapH=170;       // высота проёма (стена = 40)
-    s.gaps=[];
+    s.scrollSpeed=130;
+    s.wallSpacing=210;
+    s.wallH=26;
+    s.gapW=150;
+    s.walls=[];
+    s.nextTopY = FIELD.y - 120; // Y самой верхней стены (следующей, что появится)
+    // Заполняем начальные стены выше экрана
     for(var i=0;i<8;i++){
-      s.gaps.push({
-        y: FIELD.y - 400 + i * s.spacing,
-        h: s.gapH
+      var gapX = rand(FIELD.x + s.gapW/2 + 25, FIELD.x + FIELD.w - s.gapW/2 - 25);
+      s.walls.push({
+        y: FIELD.y - 150 - i * s.wallSpacing,
+        gapX: gapX,
+        hitCd: 0
       });
     }
-    s.spawnTimer=0;
-    s.inWall=false;
-    // Игрок стартует ВНУТРИ первого проёма
-    Z.x=W/2;
-    Z.y=FIELD.y + 20 + s.gapH/2;  // в середине первого проёма
-    Z.dir=1;
-    Z.walking=false;
+    // Игрок внизу экрана
+    Z.x = W/2;
+    Z.y = FIELD.y + FIELD.h - 100;
+    Z.dir=1;Z.walking=false;
     P.x=240;P.y=180;P.dir=-1;P.walking=false;
     P.emotion='calm';P.armsUp=false;
   },
   update:function(L,dt){
     var s=L.state;
-    // Прокрутка проёмов вниз
-    for(var i=0;i<s.gaps.length;i++){
-      s.gaps[i].y += s.speed * dt;
+    // Движение стен вниз
+    for(var i=0;i<s.walls.length;i++){
+      s.walls[i].y += s.scrollSpeed * dt;
+      if(s.walls[i].hitCd > 0) s.walls[i].hitCd -= dt;
     }
-    // Удаляем проёмы, ушедшие ниже поля
-    var newGaps=[];
-    for(var i=0;i<s.gaps.length;i++){
-      if(s.gaps[i].y < FIELD.y + FIELD.h + 60){
-        newGaps.push(s.gaps[i]);
-      }
+    // Удаляем стены, ушедшие ниже поля
+    for(var i=s.walls.length-1;i>=0;i--){
+      if(s.walls[i].y > FIELD.y + FIELD.h + 60) s.walls.splice(i,1);
     }
-    s.gaps = newGaps;
-    // Добавляем новые проёмы сверху
-    s.spawnTimer -= dt;
-    if(s.gaps.length < 6 && s.spawnTimer <= 0){
-      var topY = (s.gaps.length > 0) ? s.gaps[0].y - s.spacing : FIELD.y - 400;
-      s.gaps.unshift({y: topY, h: s.gapH});
-      s.spawnTimer = 0.05;
+    // Добавляем новые стены сверху (всегда 8+ на экране + в запасе)
+    while(s.walls.length < 9){
+      var topY = s.walls.length > 0 ? s.walls[0].y - s.wallSpacing : FIELD.y - 150;
+      var gapX = rand(FIELD.x + s.gapW/2 + 25, FIELD.x + FIELD.w - s.gapW/2 - 25);
+      s.walls.unshift({y: topY, gapX: gapX, hitCd: 0});
     }
     // Движение игрока
-    moveZ(dt, 260);
-    // Проверка: игрок в ЛЮБОМ проёме?
-    var safe = false;
-    for(var i=0;i<s.gaps.length;i++){
-      var g = s.gaps[i];
-      if(Z.y >= g.y && Z.y <= g.y + g.h){
-        safe = true;
-        break;
+    moveZ(dt, 300);
+    // Ограничения игрока
+    Z.y = clamp(Z.y, FIELD.y + 30, FIELD.y + FIELD.h - 30);
+    // Столкновения: проверяем каждую стену
+    for(var i=0;i<s.walls.length;i++){
+      var w = s.walls[i];
+      var wallTop = w.y - s.wallH/2;
+      var wallBot = w.y + s.wallH/2;
+      // Верх-низ игрока (радиус 18)
+      var pTop = Z.y - 18;
+      var pBot = Z.y + 18;
+      // Пересечение по Y со стеной?
+      if(pBot > wallTop && pTop < wallBot){
+        // Внутри ли игрок в проёме?
+        var gapLeft = w.gapX - s.gapW/2;
+        var gapRight = w.gapX + s.gapW/2;
+        var inGap = (Z.x - 18 > gapLeft) && (Z.x + 18 < gapRight);
+        if(!inGap && w.hitCd <= 0){
+          w.hitCd = 1.0;
+          game.lives--;
+          game.flash = .5;
+          tone(150,.3,'sawtooth',.08);
+          burst(Z.x, Z.y, '#ff4757', 12);
+          if(game.lives <= 0){ triggerLose(); return; }
+        }
       }
     }
-    if(!safe){
-      if(!s.inWall){
-        s.inWall = true;
-        game.lives--;
-        game.flash = .4;
-        tone(150, .3, 'sawtooth', .08);
-        if(game.lives <= 0){ triggerLose(); return; }
-      }
-    } else {
-      s.inWall = false;
-      s.dist += 220 * dt;
-    }
+    // Прогресс
+    s.dist += s.scrollSpeed * dt;
     game.irr = clamp(s.dist / s.target * 100, 0, 100);
     if(s.dist >= s.target && !L.won){ L.won = true; triggerWin(); }
   },
   render:function(L){
     var s = L.state;
-    // Тёмный фон (космос)
+    // Тёмный космический фон
     ctx.fillStyle = '#1a0f28';
     ctx.fillRect(0, 0, W, H);
-    // Светлая "стена" - весь прямоугольник поля
-    ctx.fillStyle = '#5a4a7a';
-    ctx.fillRect(FIELD.x, FIELD.y, FIELD.w, FIELD.h);
-    // Проёмы (тёмные окна) поверх стены
-    for(var i=0;i<s.gaps.length;i++){
-      var g = s.gaps[i];
-      var top = Math.max(g.y, FIELD.y);
-      var bot = Math.min(g.y + g.h, FIELD.y + FIELD.h);
-      if(bot > top){
-        // Тёмный проём
-        ctx.fillStyle = '#1a0f28';
-        ctx.fillRect(FIELD.x, top, FIELD.w, bot - top);
-        // Светлая окантовка
-        ctx.strokeStyle = '#ff8fb1';
-        ctx.lineWidth = 3;
-        if(g.y >= FIELD.y && g.y < FIELD.y + FIELD.h){
-          ctx.beginPath();
-          ctx.moveTo(FIELD.x, g.y);
-          ctx.lineTo(FIELD.x + FIELD.w, g.y);
-          ctx.stroke();
-        }
-        if(g.y + g.h > FIELD.y && g.y + g.h <= FIELD.y + FIELD.h){
-          ctx.beginPath();
-          ctx.moveTo(FIELD.x, g.y + g.h);
-          ctx.lineTo(FIELD.x + FIELD.w, g.y + g.h);
-          ctx.stroke();
-        }
-      }
+    // Звёзды
+    for(var i=0;i<30;i++){
+      var sx = (i * 73 + game.t * 20) % W;
+      var sy = (i * 137 + game.t * 40) % H;
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.3 + Math.sin(i + game.t)*0.2) + ')';
+      ctx.fillRect(sx, sy, 2, 2);
     }
-    // Красная подсветка если в стене
-    if(s.inWall){
-      ctx.fillStyle = 'rgba(255,0,0,0.2)';
-      ctx.fillRect(0, 0, W, H);
+    // Рисуем каждую стену как 2 сегмента с щелью посередине
+    for(var i=0;i<s.walls.length;i++){
+      var w = s.walls[i];
+      if(w.y < FIELD.y - 40 || w.y > FIELD.y + FIELD.h + 40) continue;
+      var wallTop = w.y - s.wallH/2;
+      var gapLeft = w.gapX - s.gapW/2;
+      var gapRight = w.gapX + s.gapW/2;
+      // Левый сегмент
+      var lx = FIELD.x;
+      var lw = gapLeft - FIELD.x;
+      if(lw > 0){
+        ctx.fillStyle = '#6a5b95';
+        ctx.fillRect(lx, wallTop, lw, s.wallH);
+        ctx.strokeStyle = '#ff8fb1';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(lx, wallTop, lw, s.wallH);
+      }
+      // Правый сегмент
+      var rx = gapRight;
+      var rw = FIELD.x + FIELD.w - gapRight;
+      if(rw > 0){
+        ctx.fillStyle = '#6a5b95';
+        ctx.fillRect(rx, wallTop, rw, s.wallH);
+        ctx.strokeStyle = '#ff8fb1';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(rx, wallTop, rw, s.wallH);
+      }
+      // Подсветка проёма
+      ctx.fillStyle = 'rgba(81,207,102,0.15)';
+      ctx.fillRect(gapLeft, wallTop, s.gapW, s.wallH);
+      // Маркеры краёв проёма (светящиеся)
+      ctx.fillStyle = '#51cf66';
+      ctx.fillRect(gapLeft - 3, wallTop - 3, 4, s.wallH + 6);
+      ctx.fillRect(gapRight - 1, wallTop - 3, 4, s.wallH + 6);
     }
     // Ракета
     ctx.fillStyle = '#ffb84d';
+    ctx.beginPath(); ctx.arc(Z.x, Z.y, 20, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(Z.x, Z.y, 20, 0, TAU); ctx.stroke();
+    // Пламя
+    ctx.fillStyle = 'rgba(255,140,60,0.7)';
     ctx.beginPath();
-    ctx.arc(Z.x, Z.y, 22, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(Z.x, Z.y, 22, 0, TAU);
-    ctx.stroke();
-    ctx.font = '28px "Apple Color Emoji",sans-serif';
+    ctx.moveTo(Z.x - 8, Z.y + 16);
+    ctx.lineTo(Z.x, Z.y + 30 + Math.sin(game.t*20)*4);
+    ctx.lineTo(Z.x + 8, Z.y + 16);
+    ctx.closePath(); ctx.fill();
+    // Ракета emoji
+    ctx.font = '26px "Apple Color Emoji",sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('🚀', Z.x, Z.y);
-    // Прогресс
+    // Прогресс-бар
     ctx.fillStyle = 'rgba(255,255,255,.15)';
-    rr(ctx, 40, H-30, W-80, 10, 5);
-    ctx.fill();
+    rr(ctx, 40, H-30, W-80, 10, 5); ctx.fill();
     ctx.fillStyle = '#51cf66';
-    rr(ctx, 40, H-30, (W-80) * clamp(s.dist/s.target, 0, 1), 10, 5);
-    ctx.fill();
+    rr(ctx, 40, H-30, (W-80) * clamp(s.dist/s.target, 0, 1), 10, 5); ctx.fill();
     chip('🕳️ ' + Math.floor(s.dist) + ' / ' + s.target, W/2, 112, '#ff8fb1');
   }
 };
